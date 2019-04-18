@@ -1,0 +1,86 @@
+#!/usr/bin/python
+
+
+###Autor: Leonardo Joji Takii
+###Atividade pratica de biometria, ministrada pelo professor David Menotti, UFPR, 2019
+###Identificacao de impressoes digitais
+# Import the required modules
+import cv2
+import os
+from PIL import Image
+import sys
+import getopt
+import numpy as np
+from numpy import linalg as npla
+import matplotlib.pyplot as plt
+import math
+import random
+
+
+import rawpy
+import imageio
+
+
+# avoiding annoying warnings
+import warnings
+import matplotlib.cbook
+
+
+# For face detection we will use the Haar Cascade provided by OpenCV.
+cascadePath = "haarcascade_frontalface_default.xml"
+faceCascade = cv2.CascadeClassifier(cascadePath)
+
+#Decide qual base sera utilizada
+
+#path = 'Lindex101/'
+path = 'Rindex28/'
+#path = 'Rindex28-type/'
+
+def main():
+	if path == 'Rindex28/':
+
+
+		image_paths = [os.path.join(path, f) for f in os.listdir(path)]
+		# labels will contains the label that is assigned to the image
+		images = []
+		labels = []
+
+		#print(image_paths)
+		#print(os.listdir(path))
+
+		for image_path in image_paths:
+
+			raw = rawpy.imread(image_path)
+			rgb = raw.postprocess()
+
+			cv2.imshow("Adding faces to training set...", rgb)
+			cv2.waitKey(1)
+			#imageio.imsave('default.tiff', rgb)
+
+			# Read the image and convert to grayscale
+			#print('image: {0}'.format(image_path))
+			
+			#image_pil = Image.open(image_path).convert('L')
+			# Convert the image format into numpy array
+			#image = np.array(image_pil, 'uint8')
+			# Get the label of the image
+			#nbr = int(os.path.split(image_path)[1].split(".")[0].replace("subject", ""))
+			#images.append(image)
+			#labels.append(nbr)
+			# Detect the face in the image
+			#faces = faceCascade.detectMultiScale(image)
+			# If a face is detected, append the face to images and the label to labels
+
+			#for (x, y, w, h) in faces:
+			#	face = image[y: y + h, x: x + w]
+		#		face = cv2.resize(face, dsize=(128, 128), interpolation=cv2.INTER_LINEAR)
+	#			imagesResized.append(face)
+	#			labelsResized.append(nbr)
+
+				#cv2.imshow("Adding faces to training set...", face)
+				#cv2.waitKey(_waitingtime)
+
+
+
+if __name__ == "__main__":
+	main()
