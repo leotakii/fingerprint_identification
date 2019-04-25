@@ -93,20 +93,17 @@ def main():
 		#plt.show()
 		processedImages.append(enhanced)
 
-
-
-
-
-
 	for image in processedImages:
 		image = ndimage.median_filter(image, size=(5,5)) #tamanho do filtro de mediana
 		
 
-	for image in processedImages: #parece SUSPEITO! REVER!!!!
+	gradientBlockSize = 5 #subdivide os blocos da imagem
 
+	for image in processedImages: #parece SUSPEITO! REVER!!!!
+		###########Efetuando filtro de sobel##############
 		sobelX = cv2.Sobel(image,cv2.CV_64F,1,0,ksize=3)#tamanho dos filtros de Sobel
 		sobelY = cv2.Sobel(image,cv2.CV_64F,0,1,ksize=3)
-
+		##################################################
 		hipoteSobel = np.sqrt(np.square(sobelX) + np.square(sobelY))
 
 		##trata divisoes por 0. REVER!!
@@ -120,13 +117,29 @@ def main():
 		#plt.imshow(angleSobel, cmap="gray")
 		#plt.show()
 
-		alphaX = np.square(hipoteSobel)*np.cos(2*angleSobel)
+		alphaX = np.square(hipoteSobel)*np.cos(2*angleSobel) #computar os alphas
 		alphaY = np.square(hipoteSobel)*np.sin(2*angleSobel)
-		plt.imshow(alphaX, cmap="gray")
-		plt.show()
-		plt.imshow(alphaY, cmap="gray")
-		plt.show()
+		#plt.imshow(alphaX, cmap="gray")
+		#plt.show()
+		#plt.imshow(alphaY, cmap="gray")
+		#plt.show()
 
+
+		#blocking do Sir Benna
+		img_alpha_x_block = [[np.sum(alphaX[index_y*gradientBlockSize: index_y*gradientBlockSize + gradientBlockSize, index_x*gradientBlockSize: index_x*gradientBlockSize + gradientBlockSize]) / gradientBlockSize**2
+				for index_x in range(image.shape[0]//gradientBlockSize)]
+				for index_y in range(image.shape[1]//gradientBlockSize)]
+   
+		img_alpha_y_block = [[np.sum(alphaY[index_y*gradientBlockSize: index_y*gradientBlockSize + gradientBlockSize, index_x*gradientBlockSize: index_x*gradientBlockSize + gradientBlockSize]) / gradientBlockSize**2
+				for index_x in range(image.shape[0]//gradientBlockSize)]
+				for index_y in range(image.shape[1]//gradientBlockSize)]
+
+		#all blocks
+		for i in range (len(img_alpha_x_block)):
+			print(np.arctan2(img_alpha_x_block[i],img_alpha_y_block[i]) * 180 / np.pi)
+
+
+		##TODO Fazer gradiente medio!! (slide 8)
 		#plot_images()
 
 
