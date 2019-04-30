@@ -58,19 +58,11 @@ def main():
 		print("Loading database: "+ path)
 		for image_path in image_paths:	
 			#print(image_path)
-
 			A = np.fromfile(image_path, dtype='int8', sep="")
-
 			#print(A.shape)
 			A = A.reshape([300, -1])
-
 			A = Image.fromarray(A)
-
 			images.append(A)
-
-
-
-
 			#plt.imshow(A, cmap="gray")
 			#plt.show()
 
@@ -81,13 +73,14 @@ def main():
 	#enhancing image
 
 	alpha = 150
-	gamma = 95 #default
+	gamma = 95 #default value
 	#gamma = 70 
 	for image in images:
 		print(np.mean(image))
 		print(np.std(image))
 		print(type(image))
 		enhanced = alpha + gamma * (image - np.mean(image)) / np.std(image)
+		enhanced = np.clip(enhanced,0,255) #limita casos em que os valores sao menores que 0 ou maiores que 255
 		print(type(enhanced))
 		#plt.imshow(enhanced, cmap="gray")
 		#plt.show()
@@ -97,7 +90,9 @@ def main():
 		image = ndimage.median_filter(image, size=(5,5)) #tamanho do filtro de mediana
 		
 
-	gradientBlockSize = 5 #subdivide os blocos da imagem
+	subMatrixBlockSize = 5 #subdivide os blocos da imagem
+	w_0 = 0.5 #valores padrao (slide 11)
+	w_1 = 0.5
 
 	for image in processedImages: #parece SUSPEITO! REVER!!!!
 		###########Efetuando filtro de sobel##############
@@ -116,7 +111,6 @@ def main():
 		#plt.show()
 		#plt.imshow(angleSobel, cmap="gray")
 		#plt.show()
-
 		alphaX = np.square(hipoteSobel)*np.cos(2*angleSobel) #computar os alphas
 		alphaY = np.square(hipoteSobel)*np.sin(2*angleSobel)
 		#plt.imshow(alphaX, cmap="gray")
@@ -125,29 +119,97 @@ def main():
 		#plt.show()
 
 
-		#blocking do Sir Benna
-		img_alpha_x_block = [[np.sum(alphaX[index_y*gradientBlockSize: index_y*gradientBlockSize + gradientBlockSize, index_x*gradientBlockSize: index_x*gradientBlockSize + gradientBlockSize]) / gradientBlockSize**2
-				for index_x in range(image.shape[0]//gradientBlockSize)]
-				for index_y in range(image.shape[1]//gradientBlockSize)]
+		#blocking de Sir Benna (gradiente medio)
+		img_alpha_x_block = [[np.sum(alphaX[index_y*subMatrixBlockSize: index_y*subMatrixBlockSize + subMatrixBlockSize, index_x*subMatrixBlockSize: index_x*subMatrixBlockSize + subMatrixBlockSize]) / subMatrixBlockSize**2
+				for index_x in range(image.shape[0]//subMatrixBlockSize)]
+				for index_y in range(image.shape[1]//subMatrixBlockSize)]
    
-		img_alpha_y_block = [[np.sum(alphaY[index_y*gradientBlockSize: index_y*gradientBlockSize + gradientBlockSize, index_x*gradientBlockSize: index_x*gradientBlockSize + gradientBlockSize]) / gradientBlockSize**2
-				for index_x in range(image.shape[0]//gradientBlockSize)]
-				for index_y in range(image.shape[1]//gradientBlockSize)]
+		img_alpha_y_block = [[np.sum(alphaY[index_y*subMatrixBlockSize: index_y*subMatrixBlockSize + subMatrixBlockSize, index_x*subMatrixBlockSize: index_x*subMatrixBlockSize + subMatrixBlockSize]) / subMatrixBlockSize**2
+				for index_x in range(image.shape[0]//subMatrixBlockSize)]
+				for index_y in range(image.shape[1]//subMatrixBlockSize)]
 
-		#all blocks
-		for i in range (len(img_alpha_x_block)):
-			print(np.arctan2(img_alpha_x_block[i],img_alpha_y_block[i]) * 180 / np.pi)
+		#all gradient blocks
+		#USAR NP.ARCTAN2 no slide 9!!!
+		#for i in range (len(img_alpha_x_block)):
+			#print(np.arctan2(img_alpha_x_block[i],img_alpha_y_block[i]) * 180 / np.pi)
+		
+		##Calcula o bloco central
+		centralBlock_x = (image.shape[0]//subMatrixBlockSize)//2
+		centralBlock_y = (image.shape[1]//subMatrixBlockSize)//2
+		maxDistance =  math.sqrt(centralBlock_x*centralBlock_x + centralBlock_y*centralBlock_y)
+		meanArray = []
+		stdArray = []
+		##percorre todos os blocos
+		for index_x in range(image.shape[0]//subMatrixBlockSize):
+			for index_y in range(image.shape[1]//subMatrixBlockSize):
+				blockValueList = []
+				for i in range(subMatrixBlockSize):
+					for j in range(subMatrixBlockSize):
+						blockValueList.append(image[index_x*i][index_y*j])
+						#print(index_x,i,index_y,j)                    #mostra bloco atual
+				blockMean = np.mean(blockValueList)
+				blockStd = np.std(blockValueList)
+
+				meanArray.append(blockMean)
+				stdArray.append(blockStd)
 
 
-		##TODO Fazer gradiente medio!! (slide 8)
+
+		for index_x in range(image.shape[0]//subMatrixBlockSize):
+			for index_y in range(image.shape[1]//subMatrixBlockSize):
+				#print("============================")
+				blockValueList = []
+				####################################
+				#POSSIVEL OTIMIZAR ESTE TRECHO:    #
+				####################################
+				for i in range(subMatrixBlockSize):
+					for j in range(subMatrixBlockSize):
+						blockValueList.append(image[index_x*i][index_y*j])
+						#print(index_x,i,index_y,j)                    #mostra bloco atual
+				blockMean = np.mean(blockValueList)
+				blockStd = np.std(blockValueList)
+				####################################
+
+
+				blockMean = (blockMean - min(meanArray)) / (max(meanArray) - min(meanArray)) #normaliza entre 0 e 1
+				blockStd = (blockStd - min(stdArray)) / (max(stdArray) - min(stdArray)) #normaliza entre 0 e 1
+				#print(blockMean," ",blockStd)                             #mostra media e desvio padrao
+				distanceToCenter = math.sqrt((centralBlock_x - index_x)**2 + (centralBlock_y - index_y)**2)
+				w_2 = distanceToCenter / maxDistance
+				v = w_0 * (1 - blockMean) + w_1 * blockStd + w_2
+				#print(w_2," ",v)
+				if v > 0.8:
+					print ("Bloco ",index_x,",",index_y," = RI")
+				else:
+					print ("Bloco ",index_x,",",index_y," != RI")
+					for i in range(subMatrixBlockSize):
+						for j in range(subMatrixBlockSize):
+							image[index_x+i][index_y+j] = 128
+
+			plt.imshow(image, cmap="gray")
+			plt.show()
+			
+
+			#
+			#for index_x in range(img_alpha_x_block[i].shape[0])
+			#	for index_y in range(img_alpha_y_block[i].shape[1])
+
+			
+
+
+
+		
+		
 		#plot_images()
 
 
 
 
-#USAR NP.ARCTAN2 no slide 9!!!
+
 
 
 
 if __name__ == "__main__":
 	main()
+
+			
