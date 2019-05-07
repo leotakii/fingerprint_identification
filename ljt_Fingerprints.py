@@ -115,7 +115,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		#plt.show()
 		processedImages.append(enhanced)
 
-	for image in processedImages:
+	for image in processedImages:#ELIMINA FALSOS GRADIENTES GERADOS POR RUIDO
 		image = ndimage.median_filter(image, size=(5,5)) #tamanho do filtro de mediana
 		
 
@@ -124,15 +124,16 @@ def main():#PATH TESTADO: 'Rindex28/'
 	w_1 = 0.5
 
 	for image in processedImages: #CALCULOS DOS GRADIENTES DOS BLOCOS E ZONAS DE INTERESSE
-		###########Efetuando filtro de sobel##############
+		
+		"""###########Efetuando filtro de sobel##############
 		sobelX = cv2.Sobel(image,cv2.CV_64F,1,0,ksize=3)#tamanho dos filtros de Sobel
 		sobelY = cv2.Sobel(image,cv2.CV_64F,0,1,ksize=3)
 		##################################################
-		hipoteSobel = np.sqrt(np.square(sobelX) + np.square(sobelY))#OBTEM A HIPOTENUSA FORMADA PELOS CATETOS DE SOBEL
+		hipoteSobel = np.sqrt(np.square(sobelX) + np.square(sobelY))#OBTEM A HIPOTENUSA FORMADA PELOS CATETOS DE SOBEL (letra grega Ro)
 
-		angleSobel = np.arctan(np.divide(sobelY,sobelX,out=np.zeros_like(sobelY), where=sobelX!=0))#ARCO TANGENTE (ANGULO) BASEADO NOS VALORES DE SOBEL
-        
-        
+		angleSobel = np.arctan(np.divide(sobelY,sobelX,out=np.zeros_like(sobelY), where=sobelX!=0))#ARCO TANGENTE (ANGULO) BASEADO NOS VALORES DE SOBEL (letra grega Theta)
+		
+		
 		#plt.imshow(sobelX, cmap="gray")
 		#plt.show()
 		#plt.imshow(sobelY, cmap="gray")
@@ -147,8 +148,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		#plt.show()
 		#plt.imshow(alphaY, cmap="gray")
 		#plt.show()
-
-
+		
 		#Blocking de Sir Benna  #CALCULA O GRADIENTE MEDIO DE CADA BLOCO DA IMAGEM
 		img_alpha_x_block = [[np.sum(alphaX[index_y*subMatrixBlockSize: index_y*subMatrixBlockSize + subMatrixBlockSize, index_x*subMatrixBlockSize: index_x*subMatrixBlockSize + subMatrixBlockSize]) / subMatrixBlockSize**2
 				for index_x in range(image.shape[0]//subMatrixBlockSize)]
@@ -157,7 +157,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		img_alpha_y_block = [[np.sum(alphaY[index_y*subMatrixBlockSize: index_y*subMatrixBlockSize + subMatrixBlockSize, index_x*subMatrixBlockSize: index_x*subMatrixBlockSize + subMatrixBlockSize]) / subMatrixBlockSize**2
 				for index_x in range(image.shape[0]//subMatrixBlockSize)]
 				for index_y in range(image.shape[1]//subMatrixBlockSize)]
-		        
+				
 		#all gradient blocks
 		#USAR NP.ARCTAN2 no slide 9!!!
 		img_alpha_x_block = np.array(img_alpha_x_block) #transforma bloco em vetor
@@ -170,6 +170,31 @@ def main():#PATH TESTADO: 'Rindex28/'
 				#angles[i,j] =  (np.arctan2(img_alpha_x_block[i],img_alpha_y_block[j]) * 0.5) 
 				print( (np.arctan2(img_alpha_x_block[i],img_alpha_y_block[j]) * 0.5) )
 				#print(np.arctan2(img_alpha_x_block[i],img_alpha_y_block[i]) * 180 / np.pi)
+		
+		
+		"""
+		blk_sz = subMatrixBlockSize
+
+		dy = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
+		dx = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=3)
+
+		img_alpha_x = dx*dx - dy*dy
+		img_alpha_y = 2 * np.multiply(dx, dy)
+	   
+		img_alpha_x_block = [[np.sum(img_alpha_x[index_y: index_y + blk_sz, index_x: index_x + blk_sz]) / blk_sz**2
+							for index_x in range(0, image.shape[0], blk_sz)]
+					for index_y in range(0, image.shape[1], blk_sz)]
+	   
+		img_alpha_y_block = [[np.sum(img_alpha_y[index_y: index_y + blk_sz, index_x: index_x + blk_sz]) / blk_sz**2
+							for index_x in range(0, image.shape[0], blk_sz)]
+					for index_y in range(0, image.shape[1], blk_sz)]
+
+		img_alpha_x_block = np.array(img_alpha_x_block)
+		img_alpha_y_block = np.array(img_alpha_y_block)
+
+		orientation_blocks = np.arctan2(img_alpha_y_block, img_alpha_x_block) / 2 #BLOCOS DE ORIENTACAO
+
+		print(orientation_blocks)
 		"""
 		halfBlock = int(subMatrixBlockSize/2)
 		gradImage = image
@@ -181,7 +206,24 @@ def main():#PATH TESTADO: 'Rindex28/'
 		"""
 		  
 
-		time.sleep(100)
+		orientation_blocks_smooth = np.zeros(orientation_blocks.shape)
+		blk_no_y, blk_no_x = orientation_blocks.shape
+		# Consistency level, filter of size (2*cons_lvl + 1) x (2*cons_lvl + 1)
+		cons_lvl = 1
+		for i in range(cons_lvl, blk_no_y-cons_lvl):
+			for j in range(cons_lvl, blk_no_x-cons_lvl):
+			  area_sin = area_cos = orientation_blocks[i-cons_lvl: i + cons_lvl, j-cons_lvl: j+cons_lvl]
+												  
+			  mean_angle_sin = np.sum(np.sin(2*area_sin))
+			  mean_angle_cos = np.sum(np.cos(2*area_cos))
+			  mean_angle = np.arctan2(mean_angle_sin, mean_angle_cos) / 2
+			  orientation_blocks_smooth[i, j] = mean_angle
+
+		#print(orientation_blocks_smooth)
+		for element in orientation_blocks_smooth:
+			print(element) 
+        """REVER ESTE TRECHO
+		#time.sleep(100)
 		#show_orientation_map(img, ang)
 		tchk = 2
 		img2 = image
@@ -209,7 +251,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		imgs_grad.append(img2)
 		cv2.imshow("mapa", cv2.resize(np.hstack((img2,img3)),None, fx=1.2, fy=1.2))
 		cv2.waitKey()
-		
+		"""
 		##Calcula o bloco central
 		centralBlock_x = (image.shape[0]//subMatrixBlockSize)//2
 		centralBlock_y = (image.shape[1]//subMatrixBlockSize)//2
