@@ -222,7 +222,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		#print(orientation_blocks_smooth)
 		for element in orientation_blocks_smooth:
 			print(element) 
-        """REVER ESTE TRECHO
+        #REVER ESTE TRECHO
 		#time.sleep(100)
 		#show_orientation_map(img, ang)
 		tchk = 2
@@ -236,22 +236,22 @@ def main():#PATH TESTADO: 'Rindex28/'
 		for i in range(len(img_alpha_x_block)):#DESENHANDO OS GRADIENTES COMO RETAS
 			for j in range(len(img_alpha_y_block)):
 				
-				#x = np.cos(angles[angleIndex])
-				#y = np.sin(angles[angleIndex])
+				#x = np.cos(orientation_blocks_smooth[angleIndex])
+				#y = np.sin(orientation_blocks_smooth[angleIndex])
+				x = np.multiply( np.multiply( np.cos(orientation_blocks_smooth[angleIndex] ), 0.5 ) , (metade-tchk) )
+				y = np.multiply( np.multiply( np.sin(orientation_blocks_smooth[angleIndex] ), 0.5 ) , (metade-tchk) )
 				#print(x) 
 				#print(y) 
-				x = np.multiply( np.multiply( np.cos(angles[angleIndex] ), 0.5 ) , (metade-tchk) )
-				y = np.multiply( np.multiply( np.sin(angles[angleIndex] ), 0.5 ) , (metade-tchk) )
-				#x = int(np.cos(angles[angleIndex]*np.pi/180)*(metade-tchk))
-				#y = int(np.sin(angles[angleIndex]*np.pi/180)*(metade-tchk))
-				cv2.line(img2[i*tam:(i+1)*tam, j*tam:(j+1)*tam],(metade+x, metade-y), (metade-x, metade+y),(0,0,255),tchk)
-				cv2.line(img3[i*tam:(i+1)*tam, j*tam:(j+1)*tam],(metade+x, metade-y), (metade-x, metade+y),(0,0,255),tchk)
-				print(angleIndex)
+				#x = int(np.cos(orientation_blocks_smooth[angleIndex]*np.pi/180)*(metade-tchk))
+				#y = int(np.sin(orientation_blocks_smooth[angleIndex]*np.pi/180)*(metade-tchk))
+				#cv2.line(img2[i*tam:(i+1)*tam, j*tam:(j+1)*tam],(metade+x, metade-y), (metade-x, metade+y),(0,0,255),tchk)
+				#cv2.line(img3[i*tam:(i+1)*tam, j*tam:(j+1)*tam],(metade+x, metade-y), (metade-x, metade+y),(0,0,255),tchk)
+				#print(angleIndex)
 				angleIndex += 1 
 		imgs_grad.append(img2)
 		cv2.imshow("mapa", cv2.resize(np.hstack((img2,img3)),None, fx=1.2, fy=1.2))
 		cv2.waitKey()
-		"""
+		
 		##Calcula o bloco central
 		centralBlock_x = (image.shape[0]//subMatrixBlockSize)//2
 		centralBlock_y = (image.shape[1]//subMatrixBlockSize)//2
@@ -298,7 +298,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 				v = w_0 * (1 - blockMean) + w_1 * blockStd + w_2
 				#print(w_2," ",v)
 				if v > 0.8:
-					merda = 1
+					uselessBlock = False
 					#print ("Bloco ",index_x,",",index_y," = RI")
 				else:
 					#print ("Bloco ",index_x,",",index_y," != RI")
