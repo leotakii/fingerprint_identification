@@ -1,7 +1,7 @@
 import json,os
 
 
-files = [os.path.join('.',f) for f in os.listdir('.') 
+files = [os.path.join('.',f) for f in sorted(os.listdir('.')) 
          if f.endswith('.lif') and os.path.isfile(os.path.join('.',f))]
 
 

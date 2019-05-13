@@ -7,7 +7,7 @@
 # Import the required modules
 import cv2
 import os
-from PIL import Image
+from PIL import Image, ImageDraw
 import sys
 import getopt
 import numpy as np
@@ -38,7 +38,14 @@ path = 'Rindex28/'
 #path = 'Rindex28-type/'
 
 
+signum = lambda x: -1 if x < 0 else 1
+cells = [(-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1)]
 
+def get_angle(left, right):
+	angle = left - right
+	if abs(angle) > 180:
+		angle = -1 * signum(angle) * (360 - abs(angle))
+	return angle
 
 #Baseado em:
 #https://www.sciencedirect.com/science/article/pii/S1110866513000030
@@ -119,7 +126,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		image = ndimage.median_filter(image, size=(5,5)) #tamanho do filtro de mediana
 		
 
-	subMatrixBlockSize = 5 #subdivide os blocos da imagem
+	subMatrixBlockSize = 10 #subdivide os blocos da imagem
 	w_0 = 0.5 #valores padrao (slide 11)
 	w_1 = 0.5
 
@@ -173,6 +180,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		
 		
 		"""
+		##SIR BENNA
 		blk_sz = subMatrixBlockSize
 
 		dy = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
@@ -194,22 +202,22 @@ def main():#PATH TESTADO: 'Rindex28/'
 
 		orientation_blocks = np.arctan2(img_alpha_y_block, img_alpha_x_block) / 2 #BLOCOS DE ORIENTACAO
 
-		print(orientation_blocks)
+
 		"""
 		halfBlock = int(subMatrixBlockSize/2)
 		gradImage = image
 		gradImage = np.where(gradImage > 200, 200, gradImage)
 		gradImage = gradImage + 54
 		tam = int(subMatrixBlockSize)
-		img3 = np.zeros_like(gradImage)
+		onlyGrad = np.zeros_like(gradImage)
 		
 		"""
-		  
-
+		# Consistency level, filter of size (2*cons_lvl + 1) x (2*cons_lvl + 1)
+		cons_lvl = 1  
+		
 		orientation_blocks_smooth = np.zeros(orientation_blocks.shape)
 		blk_no_y, blk_no_x = orientation_blocks.shape
-		# Consistency level, filter of size (2*cons_lvl + 1) x (2*cons_lvl + 1)
-		cons_lvl = 1
+		
 		for i in range(cons_lvl, blk_no_y-cons_lvl):
 			for j in range(cons_lvl, blk_no_x-cons_lvl):
 			  area_sin = area_cos = orientation_blocks[i-cons_lvl: i + cons_lvl, j-cons_lvl: j+cons_lvl]
@@ -218,39 +226,36 @@ def main():#PATH TESTADO: 'Rindex28/'
 			  mean_angle_cos = np.sum(np.cos(2*area_cos))
 			  mean_angle = np.arctan2(mean_angle_sin, mean_angle_cos) / 2
 			  orientation_blocks_smooth[i, j] = mean_angle
-
-		#print(orientation_blocks_smooth)
-		for element in orientation_blocks_smooth:
-			print(element) 
-        #REVER ESTE TRECHO
+		
+		orientation_blocks_smooth = np.array(orientation_blocks_smooth)
 		#time.sleep(100)
 		#show_orientation_map(img, ang)
-		tchk = 2
-		img2 = image
-		img2 = np.where(img2 > 200, 200, img2)
-		img2 = img2 + 54
+		gradImg = image
+		gradImg = np.where(gradImg > 200, 200, gradImg)
+		gradImg = gradImg + 54
 		tam = int(subMatrixBlockSize)
-		img3 = np.zeros_like(img2)
+		onlyGrad = np.zeros_like(gradImg)
+		np.where(onlyGrad == 0.0, 128, onlyGrad)
+		#onlyGrad = onlyGrad.fill(255)
 		angleIndex = 0
-		metade = int(subMatrixBlockSize/2)
-		for i in range(len(img_alpha_x_block)):#DESENHANDO OS GRADIENTES COMO RETAS
-			for j in range(len(img_alpha_y_block)):
-				
-				#x = np.cos(orientation_blocks_smooth[angleIndex])
-				#y = np.sin(orientation_blocks_smooth[angleIndex])
-				x = np.multiply( np.multiply( np.cos(orientation_blocks_smooth[angleIndex] ), 0.5 ) , (metade-tchk) )
-				y = np.multiply( np.multiply( np.sin(orientation_blocks_smooth[angleIndex] ), 0.5 ) , (metade-tchk) )
-				#print(x) 
-				#print(y) 
-				#x = int(np.cos(orientation_blocks_smooth[angleIndex]*np.pi/180)*(metade-tchk))
-				#y = int(np.sin(orientation_blocks_smooth[angleIndex]*np.pi/180)*(metade-tchk))
-				#cv2.line(img2[i*tam:(i+1)*tam, j*tam:(j+1)*tam],(metade+x, metade-y), (metade-x, metade+y),(0,0,255),tchk)
-				#cv2.line(img3[i*tam:(i+1)*tam, j*tam:(j+1)*tam],(metade+x, metade-y), (metade-x, metade+y),(0,0,255),tchk)
+		halfBlock = subMatrixBlockSize//2
+		imgs_grad = []
+		for i in range(cons_lvl, blk_no_y-cons_lvl):#DESENHANDO OS GRADIENTES COMO RETAS
+			for j in range(cons_lvl, blk_no_x-cons_lvl):
+
+				x = int(np.cos(orientation_blocks_smooth[i,j])*(halfBlock-1))
+				y = int(np.sin(orientation_blocks_smooth[i,j])*(halfBlock-1))
+				#print(x," ",y)
+						
+				cv2.line(gradImg[i*tam:(i+1)*tam, j*tam:(j+1)*tam],(halfBlock+x, halfBlock-y), (halfBlock-x, halfBlock+y),(0,0,0),1)
+				cv2.line(onlyGrad[i*tam:(i+1)*tam, j*tam:(j+1)*tam],(halfBlock+x, halfBlock-y), (halfBlock-x, halfBlock+y),(255,255,255),1)
 				#print(angleIndex)
-				angleIndex += 1 
-		imgs_grad.append(img2)
-		cv2.imshow("mapa", cv2.resize(np.hstack((img2,img3)),None, fx=1.2, fy=1.2))
-		cv2.waitKey()
+				#angleIndex += 1 
+		imgs_grad.append(gradImg)
+		#plt.imshow(cv2.resize(np.hstack((gradImg,onlyGrad)),None, fx=1.2, fy=1.2),cmap="gray")
+		#plt.show()
+		#cv2.imshow("mapa", cv2.resize(np.hstack((gradImg,onlyGrad)),None, fx=1.2, fy=1.2))
+		#cv2.waitKey()
 		
 		##Calcula o bloco central
 		centralBlock_x = (image.shape[0]//subMatrixBlockSize)//2
@@ -304,10 +309,87 @@ def main():#PATH TESTADO: 'Rindex28/'
 					#print ("Bloco ",index_x,",",index_y," != RI")
 					for i in range(subMatrixBlockSize):
 						for j in range(subMatrixBlockSize):
+							#orientation_blocks_smooth[i][j] = 0.0
 							image[index_x+i][index_y+j] = 128
+							onlyGrad[index_x+i][index_y+j] = 0
 				#blockIndex = blockIndex + 1
-		plt.imshow(image, cmap="gray")
+		#plt.imshow(cv2.resize(np.hstack((gradImg,onlyGrad,image)),None, fx=1.2, fy=1.2),cmap="gray")
+		#plt.show()
+		#plt.imshow(image, cmap="gray")
+		#plt.show()
+		
+		
+		W = subMatrixBlockSize
+		#result = calculate_singularities(im, angles, int(args.tolerance[0]), W)
+
+
+		tolerance = 0 #Temporary	
+		featureImage = Image.fromarray(image)
+		(x, y) = featureImage.size
+		result = featureImage.convert("RGB")
+		#result = image#temporary
+		draw = ImageDraw.Draw(result)
+
+		colors = {"loop" : (255, 0, 0), "delta" : (0, 255, 0), "whorl": (0, 0, 255)}
+
+		for i in range(1, len(orientation_blocks) - 1):
+			for j in range(1, len(orientation_blocks[i]) - 1):
+
+				deg_angles = [math.degrees(orientation_blocks[i - k][j - l]) % 180 for k, l in cells]
+				index = 0
+				#print(deg_angles)
+				for k in range(0, 8):
+					if abs(get_angle(deg_angles[k], deg_angles[k + 1])) > 90:
+						deg_angles[k + 1] += 180
+					index += get_angle(deg_angles[k], deg_angles[k + 1])
+				#print(index),
+				if 180 - tolerance == index:
+					singularity = "loop"
+				if -180 - tolerance == index:
+					singularity = "delta"
+				if 360 - tolerance == index:
+					singularity = "whorl"
+				else:
+					singularity = "none"
+				"""if 180 - tolerance <= index and index <= 180 + tolerance:
+					singularity = "loop"
+				if -180 - tolerance <= index and index <= -180 + tolerance:
+					singularity = "delta"
+				if 360 - tolerance <= index and index <= 360 + tolerance:
+					singularity = "whorl"""
+				if singularity != "none":
+					print(singularity)
+					draw.ellipse([(i * W, j * W), ((i + 1) * W, (j + 1) * W)], outline = colors[singularity])
+
+		#del draw
+		print("draw")
+		featureImage += draw
+		featureImage = np.array(featureImage)
+		plt.imshow(cv2.resize(np.hstack((gradImg,onlyGrad,image,featureImage)),None, fx=1.2, fy=1.2),cmap="gray")
 		plt.show()
+		#result.show()
+	
+	
+
+	"""
+	def poincare_index_at(i, j, orientation_blocks, tolerance):
+		deg_angles = [math.degrees(orientation_blocks[i - k][j - l]) % 180 for k, l in cells]
+		index = 0
+		for k in range(0, 8):
+			if abs(get_angle(deg_angles[k], deg_angles[k + 1])) > 90:
+				deg_angles[k + 1] += 180
+			index += get_angle(deg_angles[k], deg_angles[k + 1])
+
+		if 180 - tolerance <= index and index <= 180 + tolerance:
+			singularity = "loop"
+		if -180 - tolerance <= index and index <= -180 + tolerance:
+			singularity = "delta"
+		if 360 - tolerance <= index and index <= 360 + tolerance:
+			singularity = "whorl"
+		singularity = "none"
+	"""
+
+		
 		
 
 if __name__ == "__main__":
