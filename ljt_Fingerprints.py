@@ -316,7 +316,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		#result = calculate_singularities(im, angles, int(args.tolerance[0]), W)
 
 
-		tolerance = 90 #Temporary	
+		tolerance = 10 #Temporary	
 		featureImage = Image.fromarray(image)
 		(x, y) = featureImage.size
 		result = featureImage.convert("RGBA")
@@ -328,16 +328,17 @@ def main():#PATH TESTADO: 'Rindex28/'
 
 		colors = {"loop" : (150, 0, 0, 0), "delta" : (0, 150, 0, 0), "whorl": (0, 0, 150, 0)}
 
-		for i in range(1, len(orientation_blocks) - 1):
-			for j in range(1, len(orientation_blocks[i]) - 1):
-				if orientation_blocks[i][j] == 0.0:
+		for i in range(1, len(orientation_blocks_smooth) - 1):
+			for j in range(1, len(orientation_blocks_smooth[i]) - 1):
+				if orientation_blocks_smooth[i][j] == 0.0:
 					continue
-				deg_angles = [math.degrees(orientation_blocks[i - k][j - l]) % 180 for k, l in cells]
+				deg_angles = [math.degrees(orientation_blocks_smooth[i - k][j - l]) % 180 for k, l in cells]
 				index = 0
 				#print(deg_angles)
 				for k in range(0, 8):
 					if abs(get_angle(deg_angles[k], deg_angles[k + 1])) > 90:
 						deg_angles[k + 1] += 180
+
 					index += get_angle(deg_angles[k], deg_angles[k + 1])
 				if 180 - tolerance <= index and index <= 180 + tolerance:
 					singularity = "loop"
