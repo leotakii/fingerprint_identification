@@ -180,7 +180,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		
 		
 		"""
-		##SIR BENNA
+		##SIR BENNA METHOD
 		blk_sz = subMatrixBlockSize
 
 		dy = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
@@ -202,23 +202,14 @@ def main():#PATH TESTADO: 'Rindex28/'
 
 		orientation_blocks = np.arctan2(img_alpha_y_block, img_alpha_x_block) / 2 #BLOCOS DE ORIENTACAO
 
-
-		"""
-		halfBlock = int(subMatrixBlockSize/2)
-		gradImage = image
-		gradImage = np.where(gradImage > 200, 200, gradImage)
-		gradImage = gradImage + 54
-		tam = int(subMatrixBlockSize)
-		onlyGrad = np.zeros_like(gradImage)
-		
-		"""
+		##SIR BENNA METHOD
 		# Consistency level, filter of size (2*cons_lvl + 1) x (2*cons_lvl + 1)
 		cons_lvl = 1  
 		
 		orientation_blocks_smooth = np.zeros(orientation_blocks.shape)
 		blk_no_y, blk_no_x = orientation_blocks.shape
 		
-		for i in range(cons_lvl, blk_no_y-cons_lvl):
+		for i in range(cons_lvl, blk_no_y-cons_lvl): #Obtem angulos suavizados
 			for j in range(cons_lvl, blk_no_x-cons_lvl):
 			  area_sin = area_cos = orientation_blocks[i-cons_lvl: i + cons_lvl, j-cons_lvl: j+cons_lvl]
 												  
@@ -306,11 +297,13 @@ def main():#PATH TESTADO: 'Rindex28/'
 					uselessBlock = False
 					#print ("Bloco ",index_x,",",index_y," = RI")
 				else:
+					orientation_blocks[index_x//subMatrixBlockSize,index_y//subMatrixBlockSize] = 0.0
+					orientation_blocks_smooth[index_x//subMatrixBlockSize,index_y//subMatrixBlockSize] = 0.0
 					#print ("Bloco ",index_x,",",index_y," != RI")
 					for i in range(subMatrixBlockSize):
 						for j in range(subMatrixBlockSize):
-							#orientation_blocks_smooth[i][j] = 0.0
-							image[index_x+i][index_y+j] = 128
+							
+							image[index_x+i][index_y+j] = 0
 							onlyGrad[index_x+i][index_y+j] = 0
 				#blockIndex = blockIndex + 1
 		#plt.imshow(cv2.resize(np.hstack((gradImg,onlyGrad,image)),None, fx=1.2, fy=1.2),cmap="gray")
@@ -323,18 +316,22 @@ def main():#PATH TESTADO: 'Rindex28/'
 		#result = calculate_singularities(im, angles, int(args.tolerance[0]), W)
 
 
-		tolerance = 0 #Temporary	
+		tolerance = 90 #Temporary	
 		featureImage = Image.fromarray(image)
 		(x, y) = featureImage.size
-		result = featureImage.convert("RGB")
+		result = featureImage.convert("RGBA")
+		featureArray = np.array(featureImage)
 		#result = image#temporary
 		draw = ImageDraw.Draw(result)
 
-		colors = {"loop" : (255, 0, 0), "delta" : (0, 255, 0), "whorl": (0, 0, 255)}
+		#orientation_blocks = orientation_blocks_smooth
+
+		colors = {"loop" : (150, 0, 0, 0), "delta" : (0, 150, 0, 0), "whorl": (0, 0, 150, 0)}
 
 		for i in range(1, len(orientation_blocks) - 1):
 			for j in range(1, len(orientation_blocks[i]) - 1):
-
+				if orientation_blocks[i][j] == 0.0:
+					continue
 				deg_angles = [math.degrees(orientation_blocks[i - k][j - l]) % 180 for k, l in cells]
 				index = 0
 				#print(deg_angles)
@@ -342,30 +339,44 @@ def main():#PATH TESTADO: 'Rindex28/'
 					if abs(get_angle(deg_angles[k], deg_angles[k + 1])) > 90:
 						deg_angles[k + 1] += 180
 					index += get_angle(deg_angles[k], deg_angles[k + 1])
-				#print(index),
-				if 180 - tolerance == index:
+				if 180 - tolerance <= index and index <= 180 + tolerance:
 					singularity = "loop"
-				if -180 - tolerance == index:
+					draw.ellipse([(i * W, j * W), ((i + 1) * W, (j + 1) * W)],fill=(64,64,64,0), outline = colors[singularity])
+					print(index),
+				elif -180 - tolerance <= index and index <= -180 + tolerance:
 					singularity = "delta"
-				if 360 - tolerance == index:
-					singularity = "whorl"
+					draw.ellipse([(i * W, j * W), ((i + 1) * W, (j + 1) * W)],fill=(255,255,255,0), outline = colors[singularity])
+					print(index),
+				#if 360 - tolerance <= index and index <= 360 + tolerance:
+				#	singularity = "whorl"
+				#if 180 == index :
+				#	singularity = "loop"
+					#draw.ellipse([(i * W, j * W), ((i + 1) * W, (j + 1) * W)], outline = colors[singularity])
+				#if -180 == index:
+				#	singularity = "delta"
+					#draw.rect([(i * W, j * W), ((i + 1) * W, (j + 1) * W)], outline = colors[singularity])
+				#if 360 == index:
+					#singularity = "whorl"
 				else:
 					singularity = "none"
-				"""if 180 - tolerance <= index and index <= 180 + tolerance:
-					singularity = "loop"
-				if -180 - tolerance <= index and index <= -180 + tolerance:
-					singularity = "delta"
-				if 360 - tolerance <= index and index <= 360 + tolerance:
-					singularity = "whorl"""
-				if singularity != "none":
-					print(singularity)
-					draw.ellipse([(i * W, j * W), ((i + 1) * W, (j + 1) * W)], outline = colors[singularity])
 
-		#del draw
-		print("draw")
-		featureImage += draw
-		featureImage = np.array(featureImage)
-		plt.imshow(cv2.resize(np.hstack((gradImg,onlyGrad,image,featureImage)),None, fx=1.2, fy=1.2),cmap="gray")
+				if singularity != "none":
+					print(singularity,i,j)					
+					#orientation_blocks_smooth[i][j] = 0.0
+					#featureArray[x*subMatrixBlockSize+i][y*subMatrixBlockSize+j] = 255
+
+					#draw.ellipse([(i * W, j * W), ((i + 1) * W, (j + 1) * W)],fill=(255,255,255,0), outline = colors[singularity])
+
+		del draw
+		#featureImage = Image.alpha_composite(featureImage, result)
+		#print("draw")
+		#featureImage += draw
+		result = result.convert("L")
+		result = np.array(result)
+		print("")
+		print("=========================")
+		#plt.imshow(result,cmap="pink")
+		plt.imshow(cv2.resize(np.hstack((gradImg,image,onlyGrad,result)),None, fx=1.2, fy=1.2))
 		plt.show()
 		#result.show()
 	
