@@ -37,6 +37,9 @@ faceCascade = cv2.CascadeClassifier(cascadePath)
 path = 'Rindex28/'
 #path = 'Rindex28-type/'
 
+poincareTolerance = 5
+blockDimension = 12 #1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 25, 30, 50, 60, 100, 150 e 300 (divisores de 300)
+
 
 signum = lambda x: -1 if x < 0 else 1
 cells = [(-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1)]
@@ -126,7 +129,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		image = ndimage.median_filter(image, size=(5,5)) #tamanho do filtro de mediana
 		
 
-	subMatrixBlockSize = 10 #subdivide os blocos da imagem
+	subMatrixBlockSize = blockDimension #subdivide os blocos da imagem
 	w_0 = 0.5 #valores padrao (slide 11)
 	w_1 = 0.5
 
@@ -247,7 +250,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		#plt.show()
 		#cv2.imshow("mapa", cv2.resize(np.hstack((gradImg,onlyGrad)),None, fx=1.2, fy=1.2))
 		#cv2.waitKey()
-		
+		###REGIOES DE INTERESSE
 		##Calcula o bloco central
 		centralBlock_x = (image.shape[0]//subMatrixBlockSize)//2
 		centralBlock_y = (image.shape[1]//subMatrixBlockSize)//2
@@ -316,7 +319,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		#result = calculate_singularities(im, angles, int(args.tolerance[0]), W)
 
 
-		tolerance = 10 #Temporary	
+		tolerance = poincareTolerance #Temporary	
 		featureImage = Image.fromarray(image)
 		(x, y) = featureImage.size
 		result = featureImage.convert("RGBA")
@@ -327,9 +330,10 @@ def main():#PATH TESTADO: 'Rindex28/'
 		#orientation_blocks = orientation_blocks_smooth
 
 		colors = {"loop" : (150, 0, 0, 0), "delta" : (0, 150, 0, 0), "whorl": (0, 0, 150, 0)}
-
-		for i in range(1, len(orientation_blocks_smooth) - 1):
-			for j in range(1, len(orientation_blocks_smooth[i]) - 1):
+		##Deteccao de Cores e Deltas
+		##Baseado na implementacao do Poincare de https://github.com/rtshadow/biometrics/blob/master/poincare.py
+		for i in range(0, len(orientation_blocks_smooth) - 1): 
+			for j in range(0, len(orientation_blocks_smooth[i]) - 1):
 				if orientation_blocks_smooth[i][j] == 0.0:
 					continue
 				deg_angles = [math.degrees(orientation_blocks_smooth[i - k][j - l]) % 180 for k, l in cells]
