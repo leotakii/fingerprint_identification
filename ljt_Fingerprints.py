@@ -38,7 +38,7 @@ path = 'Rindex28/'
 #path = 'Rindex28-type/'
 
 poincareTolerance = 5
-blockDimension = 12 #1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 25, 30, 50, 60, 100, 150 e 300 (divisores de 300)
+blockDimension = 15 #1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 25, 30, 50, 60, 100, 150 e 300 (divisores de 300)
 
 
 signum = lambda x: -1 if x < 0 else 1
@@ -258,6 +258,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		meanArray = [] #ARMAZENA TODAS AS MEDIAS
 		stdArray = [] #ARMAZENA TODOS OS DESV PADR
 		##percorre todos os blocos
+		roi_block = np.zeros(orientation_blocks.shape)
 		for index_x in drange(0,image.shape[0],subMatrixBlockSize): #CALCULA MEDIA E STDEV ENTRE OS PIXELS DE UM BLOCO
 			for index_y in drange(0,image.shape[1],subMatrixBlockSize):
 				blockValueList = []
@@ -296,12 +297,10 @@ def main():#PATH TESTADO: 'Rindex28/'
 				w_2 = 1 - (distanceToCenter / maxDistance)
 				v = w_0 * (1 - blockMean) + w_1 * blockStd + w_2
 				#print(w_2," ",v)
-				if v > 0.8:
-					uselessBlock = False
-					#print ("Bloco ",index_x,",",index_y," = RI")
-				else:
+				if v < 0.8:
 					orientation_blocks[index_x//subMatrixBlockSize,index_y//subMatrixBlockSize] = 0.0
 					orientation_blocks_smooth[index_x//subMatrixBlockSize,index_y//subMatrixBlockSize] = 0.0
+					roi_block[index_x//subMatrixBlockSize,index_y//subMatrixBlockSize] = 1
 					#print ("Bloco ",index_x,",",index_y," != RI")
 					for i in range(subMatrixBlockSize):
 						for j in range(subMatrixBlockSize):
@@ -330,11 +329,48 @@ def main():#PATH TESTADO: 'Rindex28/'
 		#orientation_blocks = orientation_blocks_smooth
 
 		colors = {"loop" : (150, 0, 0, 0), "delta" : (0, 150, 0, 0), "whorl": (0, 0, 150, 0)}
+		poincare = np.zeros(orientation_blocks.shape)
 		##Deteccao de Cores e Deltas
 		##Baseado na implementacao do Poincare de https://github.com/rtshadow/biometrics/blob/master/poincare.py
-		for i in range(0, len(orientation_blocks_smooth) - 1): 
-			for j in range(0, len(orientation_blocks_smooth[i]) - 1):
-				if orientation_blocks_smooth[i][j] == 0.0:
+		
+		def draw_singular_points(image, singular_pts, poincare, blk_sz, thicc=2):
+		   '''
+			  image - Image array.
+			  poincare - Poincare index matrix of each block.
+			  blk_sz - block size of the orientation field.
+			  tolerance - Angle tolerance in degrees.
+			  thicc - Thickness of the lines to plot.
+		   '''
+		   # add color channels to ndarray
+		   if(len(image.shape) == 2):
+			  image_color = np.stack((image,)*3, axis=-1)
+		   else:
+			  image_color = image
+
+		   # cores, deltas, whorls = singular_pts/blk_sz
+		   divide_tuple_by_blk_sz = lambda point_blk: (point_blk[0]/blk_sz, point_blk[1]/blk_sz)
+		   cores, deltas, whorls = [map(divide_tuple_by_blk_sz, singular_pts_typed)
+									for singular_pts_typed in singular_pts]
+
+		   for i, j in map(lambda x: (int(x[0]), int(x[1])), cores):
+			  color = matplotlib.cm.hot(abs(poincare[i, j]/360))
+			  color = (color[0]*255, color[1]*255, color[2]*255)
+			  cv2.circle(image_color, (int((j+0.5)*blk_sz), int((i+0.5) * blk_sz)),
+						  int(blk_sz/2), color, thicc)
+
+		   for i, j in map(lambda x: (int(x[0]), int(x[1])), deltas):
+			  cv2.rectangle(image_color, (j*blk_sz, i*blk_sz),
+							((j+1)*blk_sz, (i+1)*blk_sz), (0, 125, 255), thicc)
+
+		   for i, j in map(lambda x: (int(x[0]), int(x[1])), whorls):
+			  cv2.circle(image_color, (int((j+0.5)*blk_sz), int((i+0.5) * blk_sz)),
+						  int(blk_sz/2), (0, 200, 200), thicc)
+		   return image_color
+		
+		for i in range(1, len(orientation_blocks_smooth[0]) - 1): 
+			for j in range(1, len(orientation_blocks_smooth[1]) - 1):
+				#print(orientation_blocks_smooth)
+				if roi_block[i][j] != 0 or roi_block[i+1][j] != 0 or roi_block[i-1][j] != 0 or roi_block[i][j+1] != 0 or roi_block[i][j-1] != 0:
 					continue
 				deg_angles = [math.degrees(orientation_blocks_smooth[i - k][j - l]) % 180 for k, l in cells]
 				index = 0
@@ -344,6 +380,24 @@ def main():#PATH TESTADO: 'Rindex28/'
 						deg_angles[k + 1] += 180
 
 					index += get_angle(deg_angles[k], deg_angles[k + 1])
+				poincare[i,j] = index
+				singularity = "none"
+				if (np.isclose(poincare[i, j], 180, 0, tolerance)):
+					singularity = "loop"
+					draw.ellipse([(j * W, i * W), ((j + 1) * W, (i + 1) * W)],fill=(64,64,64,0), outline = colors[singularity])
+					cv2.circle(image, (int((j+0.5)*W), int((i+0.5) * W)),
+						  int(W/2), (128,0,0), 2)
+					#cores.append((i, j))
+				if (np.isclose(poincare[i, j], -180, 0, tolerance)):
+					singularity = "delta"
+					draw.rectangle([(j * W, i * W), ((j + 1) * W, (i + 1) * W)],fill=(255,255,255,0), outline = colors[singularity])
+					cv2.rectangle(image, (j*W, i*W), ((j+1)*W, (i+1)*W), (0, 125, 255), 2)
+					#deltas.append((i, j))
+				if (np.isclose(poincare[i, j], 360, 0, tolerance)):
+					singularity = "whorl"
+					draw.ellipse([(j * W, i * W), ((j + 1) * W, (i + 1) * W)],fill=(128,128,128,0), outline = colors[singularity])
+					#whorls.append((i, j))
+				"""
 				if 180 - tolerance <= index and index <= 180 + tolerance:
 					singularity = "loop"
 					draw.ellipse([(i * W, j * W), ((i + 1) * W, (j + 1) * W)],fill=(64,64,64,0), outline = colors[singularity])
@@ -352,6 +406,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 					singularity = "delta"
 					draw.ellipse([(i * W, j * W), ((i + 1) * W, (j + 1) * W)],fill=(255,255,255,0), outline = colors[singularity])
 					print(index),
+				"""
 				#if 360 - tolerance <= index and index <= 360 + tolerance:
 				#	singularity = "whorl"
 				#if 180 == index :
@@ -361,9 +416,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 				#	singularity = "delta"
 					#draw.rect([(i * W, j * W), ((i + 1) * W, (j + 1) * W)], outline = colors[singularity])
 				#if 360 == index:
-					#singularity = "whorl"
-				else:
-					singularity = "none"
+					#singularity = "whorl"			
 
 				if singularity != "none":
 					print(singularity,i,j)					
