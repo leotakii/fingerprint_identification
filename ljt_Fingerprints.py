@@ -33,12 +33,12 @@ faceCascade = cv2.CascadeClassifier(cascadePath)
 
 #Decide qual base sera utilizada
 
-#path = 'Lindex101/'
-path = 'Rindex28/'
+path = 'Lindex101/'
+#path = 'Rindex28/'
 #path = 'Rindex28-type/'
 
 poincareTolerance = 5
-blockDimension = 15 #1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 25, 30, 50, 60, 100, 150 e 300 (divisores de 300)
+blockDimension = 10 #1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 25, 30, 50, 60, 100, 150 e 300 (divisores de 300)
 
 
 signum = lambda x: -1 if x < 0 else 1
@@ -332,7 +332,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		poincare = np.zeros(orientation_blocks.shape)
 		##Deteccao de Cores e Deltas
 		##Baseado na implementacao do Poincare de https://github.com/rtshadow/biometrics/blob/master/poincare.py
-		
+		"""
 		def draw_singular_points(image, singular_pts, poincare, blk_sz, thicc=2):
 		   '''
 			  image - Image array.
@@ -366,7 +366,9 @@ def main():#PATH TESTADO: 'Rindex28/'
 			  cv2.circle(image_color, (int((j+0.5)*blk_sz), int((i+0.5) * blk_sz)),
 						  int(blk_sz/2), (0, 200, 200), thicc)
 		   return image_color
-		
+		"""
+		cores = []
+		deltas = []
 		for i in range(1, len(orientation_blocks_smooth[0]) - 1): 
 			for j in range(1, len(orientation_blocks_smooth[1]) - 1):
 				#print(orientation_blocks_smooth)
@@ -387,36 +389,12 @@ def main():#PATH TESTADO: 'Rindex28/'
 					draw.ellipse([(j * W, i * W), ((j + 1) * W, (i + 1) * W)],fill=(64,64,64,0), outline = colors[singularity])
 					cv2.circle(image, (int((j+0.5)*W), int((i+0.5) * W)),
 						  int(W/2), (128,0,0), 2)
-					#cores.append((i, j))
+					cores.append((i, j))
 				if (np.isclose(poincare[i, j], -180, 0, tolerance)):
 					singularity = "delta"
 					draw.rectangle([(j * W, i * W), ((j + 1) * W, (i + 1) * W)],fill=(255,255,255,0), outline = colors[singularity])
 					cv2.rectangle(image, (j*W, i*W), ((j+1)*W, (i+1)*W), (0, 125, 255), 2)
-					#deltas.append((i, j))
-				if (np.isclose(poincare[i, j], 360, 0, tolerance)):
-					singularity = "whorl"
-					draw.ellipse([(j * W, i * W), ((j + 1) * W, (i + 1) * W)],fill=(128,128,128,0), outline = colors[singularity])
-					#whorls.append((i, j))
-				"""
-				if 180 - tolerance <= index and index <= 180 + tolerance:
-					singularity = "loop"
-					draw.ellipse([(i * W, j * W), ((i + 1) * W, (j + 1) * W)],fill=(64,64,64,0), outline = colors[singularity])
-					print(index),
-				elif -180 - tolerance <= index and index <= -180 + tolerance:
-					singularity = "delta"
-					draw.ellipse([(i * W, j * W), ((i + 1) * W, (j + 1) * W)],fill=(255,255,255,0), outline = colors[singularity])
-					print(index),
-				"""
-				#if 360 - tolerance <= index and index <= 360 + tolerance:
-				#	singularity = "whorl"
-				#if 180 == index :
-				#	singularity = "loop"
-					#draw.ellipse([(i * W, j * W), ((i + 1) * W, (j + 1) * W)], outline = colors[singularity])
-				#if -180 == index:
-				#	singularity = "delta"
-					#draw.rect([(i * W, j * W), ((i + 1) * W, (j + 1) * W)], outline = colors[singularity])
-				#if 360 == index:
-					#singularity = "whorl"			
+					deltas.append((i, j))
 
 				if singularity != "none":
 					print(singularity,i,j)					
@@ -424,7 +402,120 @@ def main():#PATH TESTADO: 'Rindex28/'
 					#featureArray[x*subMatrixBlockSize+i][y*subMatrixBlockSize+j] = 255
 
 					#draw.ellipse([(i * W, j * W), ((i + 1) * W, (j + 1) * W)],fill=(255,255,255,0), outline = colors[singularity])
+		
+		def isNeighboor(interest, component):
+			for comp in component:
+			## se o ponto de interesse eh vizinho de algum membro dos integrantes da componente
+				if(interest[1] == comp[1] and interest[0] == comp[0]+1 or 
+				   interest[1] == comp[1] and interest[0] == comp[0]-1 or 
+				   interest[1] == comp[1]+1 and interest[0] == comp[0] or
+				   interest[1] == comp[1]-1 and interest[0] == comp[0] ):
+				   return True
+				   
+			return False
+		
+		tempComp = 	[]
+		componentCores = []
+		""" #versao que nao capta regioes em L
+		while len(cores) > 0 :
+			for c in cores:
 
+					if len(tempComp) == 0:
+						tempComp.append(c)
+
+
+					elif(isNeighboor(c,tempComp)):
+						tempComp.append(c)
+
+
+			
+			for c in tempComp:
+				cores.remove(c)
+			componentCores.append(tempComp)
+			tempComp = 	[]
+		
+		tempComp = 	[]
+		"""
+
+		hasChange = False #Gambiarra necessaria para capturar regioes com blocos alinhados em L
+##Processamento dos componentes deltas medianos
+		while len(cores) > 0 :		
+			for c in cores:
+				if len(tempComp) == 0:
+					tempComp.append(c)
+					hasChange = True
+
+				elif(isNeighboor(c,tempComp) ):
+					tempComp.append(c)
+					print(tempComp)
+					hasChange = True
+						
+				#print (isNeighboor(c,tempComp))
+			print
+			if hasChange:
+				for c in tempComp:
+					if c in cores: cores.remove(c)						
+			
+			if not hasChange:
+				componentCores.append(tempComp)
+				tempComp = []
+
+
+			hasChange = False
+		if len(tempComp) > 0: componentCores.append(tempComp)
+
+		##Processamento dos componentes deltas medianos
+		tempComp = []
+		componentDeltas = []
+		
+		hasChange = False
+		while len(deltas) > 0 :		
+			for d in deltas:
+					if len(tempComp) == 0:
+						tempComp.append(d)
+						hasChange = True
+
+					elif(isNeighboor(d,tempComp) ):
+						tempComp.append(d)
+						print(tempComp)
+						#if(len(deltas) > 1):
+						hasChange = True
+						
+					print (isNeighboor(d,tempComp))
+			print
+			if hasChange:
+				for d in tempComp:
+					if d in deltas: deltas.remove(d)						
+			
+			if not hasChange:
+				componentDeltas.append(tempComp)
+				tempComp = []
+			hasChange = False
+		if len(tempComp) > 0: componentDeltas.append(tempComp)
+		tempComp = []
+		
+		for component in componentCores:
+			centralCoord = [0.0,0.0]
+			for coord in component:
+				centralCoord[0]+=coord[0]
+				centralCoord[1]+=coord[1]
+			centralCoord[0]= centralCoord[0]/len(component)
+			centralCoord[1]= centralCoord[1]/len(component)
+			print ("MeanCore",centralCoord[0], centralCoord[1],len(component))
+			draw.rectangle([(centralCoord[1] * W, centralCoord[0] * W), ((centralCoord[1] + 1) * W, (centralCoord[0] + 1) * W)],fill=(128,128,128,0), outline = colors["loop"])
+		
+		for component in componentDeltas:
+			centralCoord = [0.0,0.0]
+			for coord in component:
+				centralCoord[0]+=coord[0]
+				centralCoord[1]+=coord[1]
+			centralCoord[0]= centralCoord[0]/len(component)
+			centralCoord[1]= centralCoord[1]/len(component)
+			print ("MeanDelta",centralCoord[0], centralCoord[1],len(component))
+			draw.ellipse([(centralCoord[1] * W, centralCoord[0] * W), ((centralCoord[1] + 1) * W, (centralCoord[0] + 1) * W)],fill=(32,32,32,0), outline = colors["delta"])
+		print (componentCores)
+		print (componentDeltas) 	
+		
 		del draw
 		#featureImage = Image.alpha_composite(featureImage, result)
 		#print("draw")
