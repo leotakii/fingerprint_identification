@@ -5,6 +5,11 @@
 ###Atividade pratica de biometria, ministrada pelo professor David Menotti, UFPR, 2019
 ###Identificacao de impressoes digitais
 # Import the required modules
+import SPOILER_fingerprint as fingerprint
+import SPOILER_enhance as enhance
+
+from skimage.morphology import skeletonize
+
 import cv2
 import os
 from PIL import Image, ImageDraw
@@ -16,6 +21,7 @@ import matplotlib.pyplot as plt
 import math
 import random
 from scipy import ndimage
+
 
 
 import rawpy
@@ -36,8 +42,12 @@ faceCascade = cv2.CascadeClassifier(cascadePath)
 path = 'Lindex101/'
 #path = 'Rindex28/'
 #path = 'Rindex28-type/'
+poincareTolerance = 0 ## valores de tolerancia empiricos
+if path == 'Lindex101/':
+	poincareTolerance = 3
 
-poincareTolerance = 5
+if path == 'Rindex28/':
+	poincareTolerance = 5
 blockDimension = 10 #1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 25, 30, 50, 60, 100, 150 e 300 (divisores de 300)
 
 
@@ -272,7 +282,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 				meanArray.append(blockMean)
 				stdArray.append(blockStd)
 
-
+		
 		#blockIndex = 0
 		for index_x in drange(0,image.shape[0],subMatrixBlockSize): #CALCULA MEDIA E STDEV ENTRE TODOS OS BLOCOS (MAL OTIMIZADO)
 			for index_y in drange(0,image.shape[1],subMatrixBlockSize): #TRECHO PARA DETECTAR BLOCOS DE INTERESSE
@@ -372,7 +382,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		for i in range(1, len(orientation_blocks_smooth[0]) - 1): 
 			for j in range(1, len(orientation_blocks_smooth[1]) - 1):
 				#print(orientation_blocks_smooth)
-				if roi_block[i][j] != 0 or roi_block[i+1][j] != 0 or roi_block[i-1][j] != 0 or roi_block[i][j+1] != 0 or roi_block[i][j-1] != 0:
+				if roi_block[i][j] != 0 or roi_block[i+1][j] != 0 or roi_block[i-1][j] != 0 or roi_block[i][j+1] != 0 or roi_block[i][j-1] != 0: #nao eh regiao de interesse
 					continue
 				deg_angles = [math.degrees(orientation_blocks_smooth[i - k][j - l]) % 180 for k, l in cells]
 				index = 0
@@ -387,13 +397,12 @@ def main():#PATH TESTADO: 'Rindex28/'
 				if (np.isclose(poincare[i, j], 180, 0, tolerance)):
 					singularity = "loop"
 					draw.ellipse([(j * W, i * W), ((j + 1) * W, (i + 1) * W)],fill=(64,64,64,0), outline = colors[singularity])
-					cv2.circle(image, (int((j+0.5)*W), int((i+0.5) * W)),
-						  int(W/2), (128,0,0), 2)
+					#cv2.circle(image, (int((j+0.5)*W), int((i+0.5) * W)), int(W/2), (128,0,0), 2)
 					cores.append((i, j))
 				if (np.isclose(poincare[i, j], -180, 0, tolerance)):
 					singularity = "delta"
 					draw.rectangle([(j * W, i * W), ((j + 1) * W, (i + 1) * W)],fill=(255,255,255,0), outline = colors[singularity])
-					cv2.rectangle(image, (j*W, i*W), ((j+1)*W, (i+1)*W), (0, 125, 255), 2)
+					#cv2.rectangle(image, (j*W, i*W), ((j+1)*W, (i+1)*W), (0, 125, 255), 2)
 					deltas.append((i, j))
 
 				if singularity != "none":
@@ -494,6 +503,9 @@ def main():#PATH TESTADO: 'Rindex28/'
 		if len(tempComp) > 0: componentDeltas.append(tempComp)
 		tempComp = []
 		
+		
+		
+		centralizedCoordsCores = []  ###calcula coordenadas centrais das componentes "cores"
 		for component in componentCores:
 			centralCoord = [0.0,0.0]
 			for coord in component:
@@ -501,9 +513,11 @@ def main():#PATH TESTADO: 'Rindex28/'
 				centralCoord[1]+=coord[1]
 			centralCoord[0]= centralCoord[0]/len(component)
 			centralCoord[1]= centralCoord[1]/len(component)
+			centralizedCoordsCores.append( (centralCoord[0],centralCoord[1]) )
 			print ("MeanCore",centralCoord[0], centralCoord[1],len(component))
 			draw.rectangle([(centralCoord[1] * W, centralCoord[0] * W), ((centralCoord[1] + 1) * W, (centralCoord[0] + 1) * W)],fill=(128,128,128,0), outline = colors["loop"])
 		
+		centralizedCoordsDeltas = [] ###calcula coordenadas centrais das componentes "deltas"
 		for component in componentDeltas:
 			centralCoord = [0.0,0.0]
 			for coord in component:
@@ -511,12 +525,49 @@ def main():#PATH TESTADO: 'Rindex28/'
 				centralCoord[1]+=coord[1]
 			centralCoord[0]= centralCoord[0]/len(component)
 			centralCoord[1]= centralCoord[1]/len(component)
+			centralizedCoordsDeltas.append( (centralCoord[0],centralCoord[1],"label") )
 			print ("MeanDelta",centralCoord[0], centralCoord[1],len(component))
 			draw.ellipse([(centralCoord[1] * W, centralCoord[0] * W), ((centralCoord[1] + 1) * W, (centralCoord[0] + 1) * W)],fill=(32,32,32,0), outline = colors["delta"])
 		print (componentCores)
-		print (componentDeltas) 	
+		
 		
 		del draw
+		limiarSetor = (300/blockDimension)/3
+		
+		aux = []
+		for labeledCoord in centralizedCoordsDeltas: ##verifica se delta eh esquerdista, centrao ou conservador.
+													 ##O limiar para ser "center" eh menor que os outros.
+			if(labeledCoord[1] < 1.4*limiarSetor): 
+				aux.append((labeledCoord[0],labeledCoord[1],"left"))
+				#labeledCoord[2] = "left"
+			
+			elif(labeledCoord[1] >= 1.4	*limiarSetor and labeledCoord[1] <= 1.6	*limiarSetor ):
+				aux.append((labeledCoord[0],labeledCoord[1],"center"))
+				
+			elif(labeledCoord[1] <= 3*limiarSetor):
+				aux.append((labeledCoord[0],labeledCoord[1],"right"))
+			print (labeledCoord) 	
+		
+		centralizedCoordsDeltas = aux
+		
+		
+		##classificador de digitais
+		if len(centralizedCoordsCores) <= 1 and len(centralizedCoordsDeltas) == 0 : # se nao tem delta
+			type = "arch"
+		elif len(centralizedCoordsCores) <= 1 and (centralizedCoordsDeltas[0])[2] == "center" and len(centralizedCoordsDeltas) == 1: # se o delta for central
+			type = "arch"
+		elif len(centralizedCoordsCores) == 1 and (centralizedCoordsDeltas[0])[2] == "right" and len(centralizedCoordsDeltas) == 1: # se o delta for da direita
+			type = "leftloop"
+		elif len(centralizedCoordsCores) == 1 and (centralizedCoordsDeltas[0])[2] == "left" and len(centralizedCoordsDeltas) == 1: # se o delta for da direita
+			type = "rightloop"
+		elif len(centralizedCoordsCores) == 2 and len(centralizedCoordsDeltas) <= 2 : 
+			type = "whorl"
+		elif len(centralizedCoordsCores) == 0 and len(centralizedCoordsDeltas) == 0 or len(centralizedCoordsCores) > 2 and len(centralizedCoordsDeltas) > 2:
+			type = "others"
+		else:
+			type = "others"
+		plt.text(0, 0, type, fontsize=15)
+		
 		#featureImage = Image.alpha_composite(featureImage, result)
 		#print("draw")
 		#featureImage += draw
@@ -524,10 +575,63 @@ def main():#PATH TESTADO: 'Rindex28/'
 		result = np.array(result)
 		print("")
 		print("=========================")
-		#plt.imshow(result,cmap="pink")
-		plt.imshow(cv2.resize(np.hstack((gradImg,image,onlyGrad,result)),None, fx=1.2, fy=1.2))
+		
+		#################MINUNCIAS
+		image_bin = enhance.binarize(image)		
+		preDilate = image_bin
+		
+		image_spook = np.where(image_bin < 255, 1, 0).astype('uint8')
+		kernel = np.ones((3,3), np.uint8)  ###Erosao
+		image_spook = cv2.erode(image_spook, kernel, iterations=1) 
+		
+		
+		image_bin = np.where(image_spook == 1, 255, 0).astype('uint8')
+		
+		postDilate = image_bin
+		image_spook = np.where(image_bin < 255, 0, 1).astype('uint8')   
+		print('np.where(image_bin < 255, 1, 0)')
+		image_smoothed = enhance.smooth_bin(image_spook, blk_sz)
+		# cv2.imshow("image_smoothed", image_smoothed*255)
+
+
+		print( 'enhance.smooth_bin')
+		#image_smoothed = np.where(image_smoothed < 255, 0, 1)
+		#print('np.where(image_bin < 255, 1, 0)')
+		skeletonized = skeletonize(image_smoothed).astype('uint8')
+		image_smoothed = np.where(image_smoothed == 1, 0, 255)
+		skeletonized = np.where(skeletonized == 1, 0, 255)
+		print('skeletonize')
+		
+		for index_x in drange(0,image.shape[0],subMatrixBlockSize):
+			for index_y in drange(0,image.shape[1],subMatrixBlockSize):
+				if roi_block[index_x//subMatrixBlockSize][index_y//subMatrixBlockSize] == 1 :
+					for i in range(subMatrixBlockSize):
+						for j in range(subMatrixBlockSize):
+							skeletonized[index_x+i][index_y+j] = 255
+		
+
+		
+		image_spook = image_spook = np.where(skeletonized < 255, 0, 1).astype('uint8')   
+			
+		
+		minutiae_list = fingerprint.minutiae(image_spook, roi_block, blk_sz)##
+
+
+		#print( 'fingerprint.minutiae')
+		image_spook = fingerprint.minutiae_draw(image_spook, minutiae_list)##
+
+		minuntiaes =  image_spook
+		#print(image.shape)
+		plt.imshow(image_spook)
 		plt.show()
+		plt.imshow(cv2.resize(np.hstack((gradImg,onlyGrad,result)),None, fx=1.2, fy=1.2))
+		#plt.show()
 		#result.show()
+		plt.show()
+		
+		plt.imshow(cv2.resize(np.hstack((image,preDilate,image_bin,image_smoothed,skeletonized)),None, fx=1.2, fy=1.2),cmap="gray")
+		plt.show()
+		
 	
 	
 
