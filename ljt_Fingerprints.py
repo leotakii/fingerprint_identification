@@ -5,8 +5,8 @@
 ###Atividade pratica de biometria, ministrada pelo professor David Menotti, UFPR, 2019
 ###Identificacao de impressoes digitais
 # Import the required modules
-import SPOILER_fingerprint as fingerprint
-import SPOILER_enhance as enhance
+import lib_minuntiae as minuntiae
+import lib_cleaner as cleaner
 
 from skimage.morphology import skeletonize
 
@@ -39,15 +39,11 @@ faceCascade = cv2.CascadeClassifier(cascadePath)
 
 #Decide qual base sera utilizada
 
-path = 'Lindex101/'
+#path = 'Lindex101/'
 #path = 'Rindex28/'
 #path = 'Rindex28-type/'
 poincareTolerance = 0 ## valores de tolerancia empiricos
-if path == 'Lindex101/':
-	poincareTolerance = 3
 
-if path == 'Rindex28/':
-	poincareTolerance = 5
 blockDimension = 10 #1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 25, 30, 50, 60, 100, 150 e 300 (divisores de 300)
 
 
@@ -96,6 +92,15 @@ def plot_images(self,imgs,titles): #by bruno meyer
 			ax.set_yticks([])
 
 def main():#PATH TESTADO: 'Rindex28/' 
+	path = sys.argv[1]
+	if path == 'L':
+		path = 'Lindex101/'
+		poincareTolerance = 3
+
+	if path == 'R':
+		path = 'Rindex28/'
+		poincareTolerance = 5
+
 	if path == 'Rindex28/' or path == 'Lindex101/' :
 		image_paths = [os.path.join(path, f) for f in os.listdir(path) if  f.endswith('.raw')]
 		# labels will contains the label that is assigned to the image
@@ -532,7 +537,7 @@ def main():#PATH TESTADO: 'Rindex28/'
 		
 		
 		del draw
-		limiarSetor = (300/blockDimension)/3
+		limiarSetor = (image.shape[0]/blockDimension)/3
 		
 		aux = []
 		for labeledCoord in centralizedCoordsDeltas: ##verifica se delta eh esquerdista, centrao ou conservador.
@@ -577,28 +582,29 @@ def main():#PATH TESTADO: 'Rindex28/'
 		print("=========================")
 		
 		#################MINUNCIAS
-		image_bin = enhance.binarize(image)		
+		image_bin = cleaner.binarize(image)		
 		preDilate = image_bin
 		
-		image_spook = np.where(image_bin < 255, 1, 0).astype('uint8')
-		kernel = np.ones((3,3), np.uint8)  ###Erosao
-		image_spook = cv2.erode(image_spook, kernel, iterations=1) 
+		#image_spook = np.where(image_bin < 255, 1, 0).astype('uint8')
+		#kernel = np.ones((3,3), np.uint8)  ###Erosao
+		#image_spook = cv2.erode(image_spook, kernel, iterations=1) 
 		
 		
-		image_bin = np.where(image_spook == 1, 255, 0).astype('uint8')
+		#image_bin = np.where(image_spook == 1, 255, 0).astype('uint8')
 		
 		postDilate = image_bin
+		
 		image_spook = np.where(image_bin < 255, 0, 1).astype('uint8')   
-		print('np.where(image_bin < 255, 1, 0)')
-		image_smoothed = enhance.smooth_bin(image_spook, blk_sz)
+		#print('np.where(image_bin < 255, 1, 0)')
+		image_smoothed = cleaner.smooth_bin(image_spook, blk_sz)
 		# cv2.imshow("image_smoothed", image_smoothed*255)
 
 
-		print( 'enhance.smooth_bin')
-		#image_smoothed = np.where(image_smoothed < 255, 0, 1)
+		#print( 'cleaner.smooth_bin')
+		#image_smoothed = np.where(image_smoothed == 0, 1, 0)
 		#print('np.where(image_bin < 255, 1, 0)')
-		skeletonized = skeletonize(image_smoothed).astype('uint8')
-		image_smoothed = np.where(image_smoothed == 1, 0, 255)
+		skeletonized = skeletonize(np.where(image_smoothed == 1, 0, 1)).astype('uint8')
+		image_smoothed = np.where(image_smoothed == 1, 255, 0)
 		skeletonized = np.where(skeletonized == 1, 0, 255)
 		print('skeletonize')
 		
@@ -614,20 +620,23 @@ def main():#PATH TESTADO: 'Rindex28/'
 		image_spook = image_spook = np.where(skeletonized < 255, 0, 1).astype('uint8')   
 			
 		
-		minutiae_list = fingerprint.minutiae(image_spook, roi_block, blk_sz)##
+		minutiae_list = minuntiae.minutiae(image_spook, roi_block, blk_sz)##
 
 
-		#print( 'fingerprint.minutiae')
-		image_spook = fingerprint.minutiae_draw(image_spook, minutiae_list)##
+		#print( 'minuntiae.minutiae')
+		image_spook = minuntiae.minutiae_draw(image_spook, minutiae_list)##
 
 		minuntiaes =  image_spook
 		#print(image.shape)
-		plt.imshow(image_spook)
-		plt.show()
-		plt.imshow(cv2.resize(np.hstack((gradImg,onlyGrad,result)),None, fx=1.2, fy=1.2))
+		
+		#plt.imshow(minuntiaes)
 		#plt.show()
+		
+		#plt.imshow(cv2.resize(np.hstack((gradImg,onlyGrad,result)),None, fx=1.2, fy=1.2))
+		#plt.show()
+		
 		#result.show()
-		plt.show()
+		#plt.show()
 		
 		plt.imshow(cv2.resize(np.hstack((image,preDilate,image_bin,image_smoothed,skeletonized)),None, fx=1.2, fy=1.2),cmap="gray")
 		plt.show()
