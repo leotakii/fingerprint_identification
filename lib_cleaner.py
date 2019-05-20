@@ -11,15 +11,15 @@ import sys
 
 def binarize(img, blk_sz=3):
 	img = img.copy()
-	#per25 = np.percentile(img, 78)
-	#per50 = np.percentile(img, 90)
-	per25 = np.percentile(img, 78)
-	per50 = np.percentile(img, 89)
-	print('per25',per25)
+	#percentileBlack = np.percentile(img, 78)
+	#percentileWhite = np.percentile(img, 90)
+	percentileBlack = np.percentile(img, 78)
+	percentileWhite = np.percentile(img, 89)
+	print('percentileBlack',percentileBlack)
 
-	print('per50',per50)
+	print('percentileWhite',percentileWhite)
 
-	#print(per50)
+	#print(percentileWhite)
 
 	#hist, bins = np.histogram(img, 256, [0, 256])
 	#plt.hist(img.ravel(), 256, [0, 256])
@@ -36,8 +36,8 @@ def binarize(img, blk_sz=3):
 			block = img[blk_sz*i: blk_sz*(i+1), blk_sz*j: blk_sz*(j+1)]
 			blk_mean[i, j] = np.mean(block)
 		 
-	img = np.where(img < per25, 0, img)
-	img = np.where(img >= per50, 255, img)
+	img = np.where(img < percentileBlack, 0, img)
+	img = np.where(img >= percentileWhite, 255, img)
 
 	#plt.imshow(img,cmap="gray")
 	#plt.show()

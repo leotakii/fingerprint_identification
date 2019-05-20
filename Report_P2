@@ -1,0 +1,69 @@
+Leonardo Joji Takii, GRR20153683
+05/19
+ xxxxxxxxxxxxxxxxxxx
+|Impressões Digitais|
+ xxxxxxxxxxxxxxxxxxx
+2a entrega do trabalho de Biometria, ministrada pelo professor David Menotti, para o curso de Bacharelado em Ciência da Computação, UFPR
+
+--->Instruções de uso: 
+
+Para rodar a base L:
+	python2 ljt_Fingerprints.py L 2
+
+Para rodar a base R:
+	python2 ljt_Fingerprints.py R 2
+
+Obs: algumas dependências devem ser instaladas caso necessário.
+
+=================================================================================================================================
+IMPORTANTE!
+Há problemas na implementação da suavização após a binarização.
+Há problemas na detecção de minúncias.
+Como não foram codificados os testes de acurácia, não foi possível verificar a qualidade desta implementação.
+=================================================================================================================================
+
+
+--->Binarização de imagem:
+
+É criado um histograma sobre os valores dos pixels da imagem. Geralmente há uma alta porcentagem de pixels escuros, o que levou à necessidade de se utilizar o respectivo percentil 78 para que pixels com valores menores até este ponto sejam transformados em 0.
+Foram transformados em 255 (branco) os pixels que estão acima do percentil 89.
+Após isso, são calculados todas as médias dos blocos de tamanho 10, para que os percentis que estejam entre 78 e 89 também sejam binarizados. É aplicado um filtro 3x3 que compara sua respectiva média com a do bloco atual. Se a primeira for maior que a segunda, o pixel se torna 255. Caso contrário, 0.
+
+OBS: Os valores dos percentis foram definidos empiricamente.
+
+
+--->Remoção de ruído:
+
+O processo de binarização gera alguns ruídos na imagem, portanto é necessário removê-los.
+Para isso, utiliza-se primeiramente um filtro 5x5 com limiar 20 que calcula o número de pontos pretos de cada pixel.
+Se o número de pixels pretos for maior ou igual a 20, o pixel pivô se torna preto.
+Caso contrário, o pixel pivô se torna branco.
+
+Em seguida filtro 3x3 com limiar 2 que calcula o número de pontos pretos de cada pixel.
+Se o número de pixels pretos for maior ou igual a 2, o pixel pivô se torna preto.
+Caso contrário, o pixel pivô se torna branco.
+
+OBS: Os valores dos limiares foram definidos empiricamente.
+
+--->Esqueletização:
+
+Foi utilizado o método do scikit-image "skeletonize()".
+
+
+--->Detecção de minúncias:
+Para toda a região formada pelos blocos considerados regiões de interesse (exceto os blocos da borda), é aplicado
+um filtro 3x3 que conta quantos vizinhos pretos um pixel preto tem. A quantidade de vizinhos define qual o tipo de minúncia
+aquele ponto representa.
+
+Tipos de minúncia:
+	0 vizinhos = Singlepoint = COR_DE_BURRO_QUANDO_FOGE
+	1 vizinho  = Endpoint    = CIANO    TOLERÂNCIA = 2
+	2 vizinhos = Edgepoint   = ROXO     TOLERÂNCIA = 8
+	3 vizinhos = Bifurcation = ROSA     TOLERÂNCIA = 1
+	4 vizinhos = Crosspoint  = VERDE    TOLERÂNCIA = 4
+
+É necessário eliminar minúncias que sejam redundantes (estejam muito próximas das outras do mesmo tipo).
+Para isso, cada tipo de minúncia possui um raio de tolerância, que impede a existência de uma outra de mesmo tipo até uma determinada distância em pixels.
+
+
+

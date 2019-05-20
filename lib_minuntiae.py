@@ -12,7 +12,7 @@ import math
 import sys
 import time
 
-def minutiae(image_spook, roi_blks, blk_sz, radius=16):
+def minutiae(image_spook, roi_blks, blk_sz, radius=8):
    # 0, 1, 3, 4 neighbors
    minutiae_list = [[],[],[],[],[]]
    minutiae_type = np.full(image_spook.shape, -1)
@@ -20,10 +20,10 @@ def minutiae(image_spook, roi_blks, blk_sz, radius=16):
    for i in range(radius, image_spook.shape[0] - radius):
       for j in range(radius, image_spook.shape[1] - radius):
          # not in RoI or is background, skip it
-         if(roi_blks[i//blk_sz, j//blk_sz] == 1 or image_spook[i,j] == 0):
+         if(roi_blks[i//blk_sz, j//blk_sz] == 1 or image_spook[i,j] == 1):
             continue
          eight_nei = image_spook[i-1 : i+1+1 , j -1: j +1+1]
-         eight_nei_no = np.sum(eight_nei) - 1
+         eight_nei_no = (9-np.sum(eight_nei)) - 1
          minutiae_type[i,j] = eight_nei_no
 
    def clear_noise(image_spook, i, j, radius):
@@ -33,15 +33,16 @@ def minutiae(image_spook, roi_blks, blk_sz, radius=16):
       # (lambda x: 0 if(x == 1 or x == 3))(block)
       changed = False
 
-      if minutiae_type[i, j] == 2 or minutiae_type[i, j] == 3 or minutiae_type[i, j] == 4:
+      if minutiae_type[i, j] == 1 or minutiae_type[i, j] == 2 or minutiae_type[i, j] == 3 or minutiae_type[i, j] == 4:
          for l in range(i-radius, i + radius):
             for m in range(j-radius, j + radius):
                # ignora o indice atual
                if(l == i and j == m):
                   continue
-               if(minutiae_type[l, m] == 3
-                  or minutiae_type[l, m] == 4
-                  or minutiae_type[l, m] == 2):
+               if(minutiae_type[l, m] == 1
+                  or minutiae_type[l, m] == 2
+                  or minutiae_type[l, m] == 3
+                  or minutiae_type[l, m] == 4):
                   changed = True
                   minutiae_type[l, m] = -1
          if(changed):
@@ -72,6 +73,7 @@ def minutiae(image_spook, roi_blks, blk_sz, radius=16):
 
             # if still minutiae after clearing
             if(minutiae_type[i, j] == 1):
+               clear_noise(minutiae_type, i, j, 2) #more tolerant
                minutiae_list[1].append((i, j))
 
          elif(minutiae_type[i,j] == 2):
@@ -82,7 +84,7 @@ def minutiae(image_spook, roi_blks, blk_sz, radius=16):
 
          elif(minutiae_type[i,j] == 3):
             # 'bifurcation'
-            #clear_noise(minutiae_type, i, j, radius)
+            clear_noise(minutiae_type, i, j, 1) ##more tolerant
 
             # if still minutiae after clearing
             if(minutiae_type[i, j] == 3):
@@ -92,7 +94,7 @@ def minutiae(image_spook, roi_blks, blk_sz, radius=16):
          elif(minutiae_type[i,j] == 4):#GREEN
             # 'crossing'
             #pass
-            #clear_noise(minutiae_type, i, j, radius)
+            clear_noise(minutiae_type, i, j, 4)
             minutiae_list[4].append((i,j))
                
 
@@ -119,9 +121,10 @@ def minutiae_draw(image_spook, minutiae_list, size=1, thicc=2):
    #
    # red/pink bifurcation
    # green crossing
-
+   names = ["isolated","endpoint","edgepoint","bifurcation","crosspoint"]
    for i in range(len(minutiae_list)):
       minutiae_list_typed = minutiae_list[i]
+      print (names[i],":",len(minutiae_list_typed))
       # get next 'random' color in sequence
       #h, s, l = random.random(), 0.5 + random.random()/2.0, 0.4 + random.random()/5.0
       h, s, l = random.random(), 1 , 0.5

@@ -1,9 +1,27 @@
 Leonardo Joji Takii, GRR20153683
 05/19
+ xxxxxxxxxxxxxxxxxxx
+|Impressões Digitais|
+ xxxxxxxxxxxxxxxxxxx
+1a entrega do trabalho de Biometria, ministrada pelo professor David Menotti, para o curso de Bacharelado em Ciência da Computação, UFPR
 
+--->Instruções de uso: 
+
+Para rodar a base L:
+	python2 ljt_Fingerprints.py L 1
+
+Para rodar a base R:
+	python2 ljt_Fingerprints.py R 1
+
+Obs: algumas dependências devem ser instaladas caso necessário.
+
+=================================================================================================================================
+IMPORTANTE!
+Como não foram codificados os testes de acurácia, não foi possível verificar a qualidade desta implementação.
+=================================================================================================================================
 --->Detecção de zona de interesse: 
 
-w_0 e w_1 são constantes.
+w_0 e w_1 são constantes de valor igual a 0.5.
 Blocos que estão mais próximos do bloco central possuem um valor w_2 mais próximo de 1 do que blocos periféricos, que por sua vez possuem valores próximos de 0.
 Para cada bloco é calculado o seu desvio padrão e média (intensidade dos tons de cinza).
 É feita uma normalização entre os desvios e médias de todos os blocos. Variando de 0 a 1, cada bloco recebe um score v baseado na fórmula:
@@ -55,6 +73,7 @@ Existem 5 rótulos possíveis para uma impressão digital:
 	- Right loop           | if deltas == 1 and loops == 1 and delta.position == "left"
 	- Whorl (Twin loops)   | if deltas <= 2 and loops == 2
 	- Others               | else
+
 
 	
 
